@@ -329,6 +329,8 @@ function ReactWork() {
   // list of Work objects.
   this._onCommit = this._onCommit.bind(this);
 }
+// then方法传入一个回调，如果this._didCommit为true，直接执行。
+// 如果为false，将回调加入this._callbacks中
 ReactWork.prototype.then = function(onCommit: () => mixed): void {
   if (this._didCommit) {
     onCommit();
@@ -340,6 +342,8 @@ ReactWork.prototype.then = function(onCommit: () => mixed): void {
   }
   callbacks.push(onCommit);
 };
+// _onCommit方法，如果this._didCommit为true，直接返回
+// 如果为false，按顺序执行this._callbacks,并设置this._didCommit为true
 ReactWork.prototype._onCommit = function(): void {
   if (this._didCommit) {
     return;

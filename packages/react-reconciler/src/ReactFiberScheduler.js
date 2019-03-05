@@ -1766,6 +1766,7 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
   // Walk the parent path to the root and update the child expiration time.
   let node = fiber.return;
   let root = null;
+  // 遍历fiber，找到HostRoot
   if (node === null && fiber.tag === HostRoot) {
     root = fiber.stateNode;
   } else {

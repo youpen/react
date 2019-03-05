@@ -31,11 +31,11 @@ export type PendingInteractionMap = Map<ExpirationTime, Set<Interaction>>;
 
 type BaseFiberRootProperties = {|
   // Any additional information from the host associated with this root.
-  containerInfo: any,
+  containerInfo: any, // 保存着根DOM节点，即ReactDom.render中传入的第二个参数
   // Used only by persistent updates.
   pendingChildren: any,
   // The currently active root fiber. This is the mutable root of the tree.
-  current: Fiber,
+  current: Fiber, // root对应的fiber
 
   // The following priority levels are used to distinguish between 1)
   // uncommitted work, 2) uncommitted work that is suspended, and 3) uncommitted

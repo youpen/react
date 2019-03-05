@@ -136,9 +136,11 @@ function scheduleRootUpdate(
     }
   }
 
+  // createUpdate用于生成一个更新
   const update = createUpdate(expirationTime);
   // Caution: React DevTools currently depends on this property
   // being called "element".
+  // payload 表示需要更新的内容
   update.payload = {element};
 
   callback = callback === undefined ? null : callback;
@@ -153,6 +155,7 @@ function scheduleRootUpdate(
   }
 
   flushPassiveEffects();
+  // 将一个update加入到fiber当中，这里的current就是一个fiber
   enqueueUpdate(current, update);
   scheduleWork(current, expirationTime);
 

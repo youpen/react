@@ -217,6 +217,7 @@ function appendUpdateToQueue<State>(
   }
 }
 
+// 将新加入的fiber
 export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
   // Update queues are created lazily.
   const alternate = fiber.alternate;

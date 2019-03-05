@@ -82,9 +82,7 @@ if (__DEV__) {
 
 // A Fiber is work on a Component that needs to be done or was done. There can
 // be more than one per component.
-// Fiber就是某个组件上的任务，这个任务可能将要被执行或者已经执行
-// 每个component可能对应一个或多个fiber
-export type Fiber = {
+export type Fiber = {|
   // These first fields are conceptually members of an Instance. This used to
   // be split into a separate type and intersected with the other Fiber fields,
   // but until Flow fixes its intersection bugs, we've merged them into a
@@ -228,7 +226,7 @@ export type Fiber = {
   _debugID?: number,
   _debugSource?: Source | null,
   _debugOwner?: Fiber | null,
-  _debugIsCurrentlyTiming?: boolean,
+  _debugIsCurrentlyTiming?: boolean
 |};
 
 let debugCounter;
