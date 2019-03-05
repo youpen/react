@@ -13,7 +13,7 @@
 // the visible state of the screen, and a work-in-progress queue, which can be
 // mutated and processed asynchronously before it is committed — a form of
 // double buffering. If a work-in-progress render is discarded before finishing,
-// we create a new work-in-progress by cloning the current queue.
+// we create a new work-in-progress by cloning the current queue. TODO 猜测一下，组件继续执行就是利用这种备份实现的
 //
 // Both queues share a persistent, singly-linked list structure. To schedule an
 // update, we append it to the end of both queues. Each queue maintains a
@@ -22,7 +22,7 @@
 // the current queue, since we always work on that one. The current queue's
 // pointer is only updated during the commit phase, when we swap in the
 // work-in-progress.
-//
+// TODO 两个队列是同一种单向列表结构，都有一个指向最新但是还没执行的update
 // For example:
 //
 //   Current pointer:           A - B - C - D - E - F

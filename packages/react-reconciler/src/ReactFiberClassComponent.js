@@ -494,9 +494,10 @@ function checkClassInstance(workInProgress: Fiber, ctor: any, newProps: any) {
 }
 
 function adoptClassInstance(workInProgress: Fiber, instance: any): void {
-  instance.updater = classComponentUpdater;
-  workInProgress.stateNode = instance;
+  instance.updater = classComponentUpdater; // classComponentUpdater是一个有一堆对象的方法，目前意义不明
+  workInProgress.stateNode = instance; // 将组件实例放在fiber的stateNode中
   // The instance needs access to the fiber so that it can schedule updates
+  // 就是在instance._reactInternalFiber = workInProgress;
   setInstance(instance, workInProgress);
   if (__DEV__) {
     instance._reactInternalInstance = fakeInternalInstance;
@@ -509,8 +510,8 @@ function constructClassInstance(
   props: any,
   renderExpirationTime: ExpirationTime,
 ): any {
-  let isLegacyContextConsumer = false;
-  let unmaskedContext = emptyContextObject;
+  let isLegacyContextConsumer = false; // ?
+  let unmaskedContext = emptyContextObject; // ?
   let context = null;
   const contextType = ctor.contextType;
   if (typeof contextType === 'object' && contextType !== null) {
@@ -552,13 +553,19 @@ function constructClassInstance(
     }
   }
 
+  // 新建class组件实例
   const instance = new ctor(props, context);
+  // 就是组件中的state， 同时记录在memoizedState中，应该是用作缓存比较？
   const state = (workInProgress.memoizedState =
-    instance.state !== null && instance.state !== undefined
+    (instance.state !== null && instance.state !== undefined)
       ? instance.state
       : null);
+
+  // 这个函数主要是相互引用，为instance添加updater、workInProgress.stateNode = instance
+  // instance._reactInternalFiber = workInProgress; // 从instance也可以看到每个内部fiber
   adoptClassInstance(workInProgress, instance);
 
+  //  TODO 新的生命周期方法的处理，后面再来看
   if (__DEV__) {
     if (typeof ctor.getDerivedStateFromProps === 'function' && state === null) {
       const componentName = getComponentName(ctor) || 'Component';
@@ -716,6 +723,7 @@ function callComponentWillReceiveProps(
 }
 
 // Invokes the mount life-cycles on a previously never rendered instance.
+// 唤起一个从未执行过render的组件的生命周期方法
 function mountClassInstance(
   workInProgress: Fiber,
   ctor: any,
@@ -742,6 +750,7 @@ function mountClassInstance(
   if (__DEV__) {
     if (instance.state === newProps) {
       const componentName = getComponentName(ctor) || 'Component';
+      // 检查是否props === state，这是不建议的行为
       if (!didWarnAboutDirectlyAssigningPropsToState.has(componentName)) {
         didWarnAboutDirectlyAssigningPropsToState.add(componentName);
         warningWithoutStack(
@@ -753,7 +762,8 @@ function mountClassInstance(
         );
       }
     }
-
+    // TODO 不是很懂这种位运算的意义
+    // 下面是一些是否使用了过期方法的检查
     if (workInProgress.mode & StrictMode) {
       ReactStrictModeWarnings.recordUnsafeLifecycleWarnings(
         workInProgress,

@@ -496,12 +496,15 @@ function legacyCreateRootFromDOMContainer(
   container: DOMContainer,
   forceHydrate: boolean,
 ): Root {
+  // 初步猜测，此处Hydrate是表示是否要与html中其他dom结合？
   const shouldHydrate =
     forceHydrate || shouldHydrateDueToLegacyHeuristic(container);
   // First clear any existing content.
   if (!shouldHydrate) {
     let warned = false;
     let rootSibling;
+    // 清理了所有child dom, 保证初始化时，container是空的
+    // 这里是个赋值操作，不是比较
     while ((rootSibling = container.lastChild)) {
       if (__DEV__) {
         if (
@@ -533,6 +536,7 @@ function legacyCreateRootFromDOMContainer(
     }
   }
   // Legacy roots are not async by default.
+  // 设置为同步状态
   const isConcurrent = false;
   return new ReactRoot(container, isConcurrent, shouldHydrate);
 }
@@ -553,6 +557,7 @@ function legacyRenderSubtreeIntoContainer(
   let root: Root = (container._reactRootContainer: any);
   if (!root) {
     // Initial mount
+    // 这个root就是ReactRoot
     root = container._reactRootContainer = legacyCreateRootFromDOMContainer(
       container,
       forceHydrate,
@@ -688,6 +693,7 @@ const ReactDOM: Object = {
         enableStableConcurrentModeAPIs ? 'createRoot' : 'unstable_createRoot',
       );
     }
+    // render本质上调用了这个函数，用于初始化root，并调用root.render方法
     return legacyRenderSubtreeIntoContainer(
       null,
       element,

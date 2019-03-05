@@ -82,7 +82,9 @@ if (__DEV__) {
 
 // A Fiber is work on a Component that needs to be done or was done. There can
 // be more than one per component.
-export type Fiber = {|
+// Fiber就是某个组件上的任务，这个任务可能将要被执行或者已经执行
+// 每个component可能对应一个或多个fiber
+export type Fiber = {
   // These first fields are conceptually members of an Instance. This used to
   // be split into a separate type and intersected with the other Fiber fields,
   // but until Flow fixes its intersection bugs, we've merged them into a
@@ -94,19 +96,29 @@ export type Fiber = {|
   // minimize the number of objects created during the initial render.
 
   // Tag identifying the type of fiber.
+  // 我们知道fiber对应着element, 这个tag就是对应element的类型
+  // 0是function Component,1是 class,2是暂不确定，3、根节点4、HostComponent，dom的原生节点
   tag: WorkTag,
 
   // Unique identifier of this child.
+  // 类似组件中的key
   key: null | string,
 
   // The value of element.type which is used to preserve the identity during
   // reconciliation of this child.
+  // ???
   elementType: any,
 
   // The resolved function/class/ associated with this fiber.
+  // 对于HostRoot是null
+  // class component是构造函数
+  // hostComponent就是字符串，例如div
   type: any,
 
   // The local state associated with this fiber.
+  // 对于HostRoot，stateNode是一个FiberRoot类的实例
+  // 对于ClassComponent是构造函数
+  // 对于HostComponent是原生dom节点(待确认？)
   stateNode: any,
 
   // Conceptual aliases
@@ -119,11 +131,14 @@ export type Fiber = {|
   // This is effectively the parent, but there can be multiple parents (two)
   // so this is only the parent of the thing we're currently processing.
   // It is conceptually the same as the return address of a stack frame.
+  // 就是parent fiber，类似于栈帧的return
   return: Fiber | null,
 
   // Singly Linked List Tree Structure.
   child: Fiber | null,
   sibling: Fiber | null,
+
+  // 判断是否发生了移动？（待确定）
   index: number,
 
   // The ref last used to attach this node.
@@ -131,13 +146,15 @@ export type Fiber = {|
   ref: null | (((handle: mixed) => void) & {_stringRef: ?string}) | RefObject,
 
   // Input is the data coming into process this fiber. Arguments. Props.
-  pendingProps: any, // This type will be more specific once we overload the tag.
-  memoizedProps: any, // The props used to create the output.
+  pendingProps: any, // This type will be more specific once we overload the tag. 组件收到的新的props
+  memoizedProps: any, // The props used to create the output.组件内保存的旧的props
 
   // A queue of state updates and callbacks.
+  // 状态更新队列？
   updateQueue: UpdateQueue<any> | null,
 
   // The state used to create the output
+  // 组件中保存的旧的state
   memoizedState: any,
 
   // A linked-list of contexts that this fiber depends on
@@ -149,12 +166,16 @@ export type Fiber = {|
   // parent. Additional flags can be set at creation time, but after that the
   // value should remain unchanged throughout the fiber's lifetime, particularly
   // before its child fibers are created.
+  // fiber的工作模式，例如ConcurrentMode等等
   mode: TypeOfMode,
 
   // Effect
+  // 表示这个fiber所包含的副作用，类型在ReactSideEffectTags.js中，(待确定)
+  // 目前猜测是diff结果的类型
   effectTag: SideEffectTag,
 
   // Singly linked list fast path to the next fiber with side-effects.
+  // 下一个带有side-effects的fiber (怎么得到的？)
   nextEffect: Fiber | null,
 
   // The first and last fiber with side-effect within this subtree. This allows
@@ -173,6 +194,10 @@ export type Fiber = {|
   // This is a pooled version of a Fiber. Every fiber that gets updated will
   // eventually have a pair. There are cases when we can clean up pairs to save
   // memory if we need to.
+  // 任何情况下，每个element最多有两个fiber
+  // 1、commit之后的fiber，就是current fiber，这个fiber所包含的副作用已经被应用到了dom上面
+  // 2、work-in-progress fiber，副作用尚未被commit的fiber
+  // current fiber的alternate是work-in-progress fiber，反之亦然
   alternate: Fiber | null,
 
   // Time spent rendering this Fiber and its descendants for the current update.

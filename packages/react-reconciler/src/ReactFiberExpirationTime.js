@@ -49,6 +49,7 @@ function computeExpirationBucket(
 export const LOW_PRIORITY_EXPIRATION = 5000;
 export const LOW_PRIORITY_BATCH_SIZE = 250;
 
+// 得到相对较长的时间，对应普通的异步任务
 export function computeAsyncExpiration(
   currentTime: ExpirationTime,
 ): ExpirationTime {
@@ -73,6 +74,7 @@ export function computeAsyncExpiration(
 export const HIGH_PRIORITY_EXPIRATION = __DEV__ ? 500 : 150;
 export const HIGH_PRIORITY_BATCH_SIZE = 100;
 
+// 得到相对较短的时间，对应用户交互产生的任务，优先级相对较高
 export function computeInteractiveExpiration(currentTime: ExpirationTime) {
   return computeExpirationBucket(
     currentTime,

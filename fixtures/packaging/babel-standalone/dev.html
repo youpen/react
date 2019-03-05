@@ -5,8 +5,29 @@
     <script src="https://unpkg.com/babel-standalone@6/babel.js"></script>
     <div id="container"></div>
     <script type="text/babel">
+      debugger;
+      class A extends React.Component {
+        constructor(props) {
+          super(props);
+          debugger;
+          this.state = {test : 1}
+        }
+
+        update = () => {
+          this.setState({
+            test: this.state.test + 1,
+          })
+        }
+
+        render() {
+          return <div>
+            <button onClick={this.update} />
+            <div>{this.state.test}</div>
+          </div>
+        }
+      }
       ReactDOM.render(
-        <h1>Hello World!</h1>,
+        <A/>,
         document.getElementById('container')
       );
     </script>

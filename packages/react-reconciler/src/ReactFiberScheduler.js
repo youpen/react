@@ -1871,6 +1871,7 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
     return;
   }
 
+  // working就是是否在committing
   if (
     !isWorking &&
     nextRenderExpirationTime !== NoWork &&
@@ -2087,8 +2088,10 @@ function requestCurrentTime() {
 
 // requestWork is called by the scheduler whenever a root receives an update.
 // It's up to the renderer to call renderRoot at some point in the future.
+// 只要root收到更新，scheduler就会调用requestWork
 function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
   addRootToSchedule(root, expirationTime);
+  // performWork期间都是isRendering
   if (isRendering) {
     // Prevent reentrancy. Remaining work will be scheduled at the end of
     // the currently rendering batch.
@@ -2250,6 +2253,7 @@ function performSyncWork() {
 function performWork(minExpirationTime: ExpirationTime, isYieldy: boolean) {
   // Keep working on roots until there's no more work, or until there's a higher
   // priority event.
+  // 这一步可能是中断机制，每次执行performWork,都会先寻找一个高优先级
   findHighestPriorityRoot();
 
   if (isYieldy) {
