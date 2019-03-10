@@ -1223,12 +1223,6 @@ function workLoop(isYieldy) {
 }
 
 function renderRoot(root: FiberRoot, isYieldy: boolean): void {
-  invariant(
-    !isWorking,
-    'renderRoot was called recursively. This error is likely caused ' +
-      'by a bug in React. Please file an issue.',
-  );
-
   flushPassiveEffects();
 
   isWorking = true;
@@ -1300,12 +1294,6 @@ function renderRoot(root: FiberRoot, isYieldy: boolean): void {
   }
 
   let prevInteractions: Set<Interaction> = (null: any);
-  if (enableSchedulerTracing) {
-    // We're about to start new traced work.
-    // Restore pending interactions so cascading work triggered during the render phase will be accounted for.
-    prevInteractions = __interactionsRef.current;
-    __interactionsRef.current = root.memoizedInteractions;
-  }
 
   let didFatal = false;
 

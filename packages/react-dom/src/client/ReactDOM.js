@@ -371,13 +371,15 @@ function ReactRoot(
   isConcurrent: boolean,
   hydrate: boolean,
 ) {
+  // 就是创建了一个ReactFiberRoot，注意FiberRoot和ReactRoot的区分
   const root = createContainer(container, isConcurrent, hydrate);
-  this._internalRoot = root;
+  this._internalRoot = root; // 记住这个属性就是ReactFiberRoot
 }
 ReactRoot.prototype.render = function(
   children: ReactNodeList,
   callback: ?() => mixed,
 ): Work {
+  // 注意，这里的root是ReactFiberRoot
   const root = this._internalRoot;
   const work = new ReactWork();
   callback = callback === undefined ? null : callback;
@@ -501,6 +503,7 @@ function legacyCreateRootFromDOMContainer(
   forceHydrate: boolean,
 ): Root {
   // 初步猜测，此处Hydrate是表示是否要与html中其他dom结合？
+  // shouldHydrate和服务端渲染有关，后面再研究
   const shouldHydrate =
     forceHydrate || shouldHydrateDueToLegacyHeuristic(container);
   // First clear any existing content.
@@ -561,7 +564,7 @@ function legacyRenderSubtreeIntoContainer(
   let root: Root = (container._reactRootContainer: any);
   if (!root) {
     // Initial mount
-    // 这个root就是ReactRoot
+    // 这个root就是ReactRoot，注意root._internalRoot才是ReactFiberRoot
     root = container._reactRootContainer = legacyCreateRootFromDOMContainer(
       container,
       forceHydrate,
