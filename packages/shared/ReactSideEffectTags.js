@@ -33,3 +33,34 @@ export const HostEffectMask = /*        */ 0b001111111111;
 
 export const Incomplete = /*            */ 0b010000000000;
 export const ShouldCapture = /*         */ 0b100000000000;
+
+// // 没有任何副作用
+// export const NoEffect = /*              */ 0b00000000000
+// // 用来通知在开发者工具这次更新中当前组件有更新
+// export const PerformedWork = /*         */ 0b00000000001
+//
+// // 需要挂载到DOM上
+// export const Placement = /*             */ 0b00000000010
+// // 需要执行生命周期方法、
+// export const Update = /*                */ 0b00000000100
+// // 同时拥有`Placemenet`和`Update`副作用
+// export const PlacementAndUpdate = /*    */ 0b00000000110
+// // 删除节点
+// export const Deletion = /*              */ 0b00000001000
+// // 更新内容（文字节点？）
+// export const ContentReset = /*          */ 0b00000010000
+// //
+// export const Callback = /*              */ 0b00000100000
+// // 有异常被捕获
+// export const DidCapture = /*            */ 0b00001000000
+// // 有制定ref
+// export const Ref = /*                   */ 0b00010000000
+// // getSnaphotBeforeUpdate
+// export const Snapshot = /*              */ 0b00100000000
+//
+// export const LifecycleEffectMask = /*   */ 0b00110100100
+//
+// export const HostEffectMask = /*        */ 0b00111111111
+//
+// export const Incomplete = /*            */ 0b01000000000
+// export const ShouldCapture = /*         */ 0b10000000000

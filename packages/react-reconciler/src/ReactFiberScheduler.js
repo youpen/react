@@ -255,6 +255,7 @@ if (__DEV__) {
 // Used to ensure computeUniqueAsyncExpiration is monotonically decreasing.
 let lastUniqueAsyncExpiration: number = Sync - 1;
 
+// 感觉和isRendering很像，具体区别之后再研究
 let isWorking: boolean = false;
 
 // The next work in progress fiber that we're currently working on.
@@ -1198,6 +1199,7 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
 
   if (next === null) {
     // If this doesn't spawn new work, complete the current work.
+    // 表示做完了，开始commit
     next = completeUnitOfWork(workInProgress);
   }
 
@@ -1745,6 +1747,7 @@ function resolveRetryThenable(boundaryFiber: Fiber, thenable: Thenable) {
   retryTimedOutBoundary(boundaryFiber);
 }
 
+// 目前还看不出这个函数的作用，好像只是从触发的fiber开始，一直往上遍历，更新所有expiration time
 function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
   recordScheduleUpdate();
 
@@ -1755,14 +1758,18 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
     }
   }
 
+  // 更新当前fiber的expiration time
   // Update the source fiber's expiration time
   if (fiber.expirationTime < expirationTime) {
     fiber.expirationTime = expirationTime;
   }
+  // 更新alternate的expiration time
   let alternate = fiber.alternate;
   if (alternate !== null && alternate.expirationTime < expirationTime) {
     alternate.expirationTime = expirationTime;
   }
+
+  // 向上遍历，更新所有父节点的expiration time， 为什么？
   // Walk the parent path to the root and update the child expiration time.
   let node = fiber.return;
   let root = null;
@@ -1856,32 +1863,18 @@ export function warnIfNotCurrentlyBatchingInDev(fiber: Fiber): void {
 function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
   const root = scheduleWorkToRoot(fiber, expirationTime);
   if (root === null) {
-    if (__DEV__) {
-      switch (fiber.tag) {
-        case ClassComponent:
-          warnAboutUpdateOnUnmounted(fiber, true);
-          break;
-        case FunctionComponent:
-        case ForwardRef:
-        case MemoComponent:
-        case SimpleMemoComponent:
-          warnAboutUpdateOnUnmounted(fiber, false);
-          break;
-      }
-    }
     return;
   }
-
   // working就是是否在committing
-  if (
-    !isWorking &&
-    nextRenderExpirationTime !== NoWork &&
-    expirationTime > nextRenderExpirationTime
-  ) {
-    // This is an interruption. (Used for performance tracking.)
-    interruptedBy = fiber;
-    resetStack();
-  }
+  // if (
+  //   !isWorking &&
+  //   nextRenderExpirationTime !== NoWork &&
+  //   expirationTime > nextRenderExpirationTime
+  // ) {
+  //   // This is an interruption. (Used for performance tracking.)
+  //   interruptedBy = fiber;
+  //   resetStack();
+  // }
   markPendingPriorityLevel(root, expirationTime);
   if (
     // If we're in the render phase, we don't need to schedule this root
@@ -1893,17 +1886,6 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
   ) {
     const rootExpirationTime = root.expirationTime;
     requestWork(root, rootExpirationTime);
-  }
-  if (nestedUpdateCount > NESTED_UPDATE_LIMIT) {
-    // Reset this back to zero so subsequent updates don't throw.
-    nestedUpdateCount = 0;
-    invariant(
-      false,
-      'Maximum update depth exceeded. This can happen when a ' +
-        'component repeatedly calls setState inside ' +
-        'componentWillUpdate or componentDidUpdate. React limits ' +
-        'the number of nested updates to prevent infinite loops.',
-    );
   }
 }
 
@@ -1928,6 +1910,8 @@ let lastScheduledRoot: FiberRoot | null = null;
 
 let callbackExpirationTime: ExpirationTime = NoWork;
 let callbackID: *;
+// isRendering是从performWorkOnRoot的过程开始为true，结束为false，
+// 说明isRendering包含了render以及commit过程？至少这个变量可能是只是为了区分schedule过程
 let isRendering: boolean = false;
 let nextFlushedRoot: FiberRoot | null = null;
 let nextFlushedExpirationTime: ExpirationTime = NoWork;
@@ -2044,14 +2028,17 @@ function onCommit(root, expirationTime) {
 }
 
 function requestCurrentTime() {
+  // 由scheduler调用，用于计算expiration时间
   // requestCurrentTime is called by the scheduler to compute an expiration
   // time.
   //
+  // Expiration时间是通过添加current time来计算的，
   // Expiration times are computed by adding to the current time (the start
   // time). However, if two updates are scheduled within the same event, we
   // should treat their start times as simultaneous, even if the actual clock
   // time has advanced between the first and second call.
 
+  // expiration time决定了update如何被batch
   // In other words, because expiration times determine how updates are batched,
   // we want all updates of like priority that occur within the same event to
   // receive the same expiration time. Otherwise we get tearing.
@@ -2059,7 +2046,7 @@ function requestCurrentTime() {
   // We keep track of two separate times: the current "renderer" time and the
   // current "scheduler" time. The renderer time can be updated whenever; it
   // only exists to minimize the calls performance.now.
-  //
+  //scheduler time只能在没有pending work的时候更新，这样我们可以知道我们是否在一个event中
   // But the scheduler time can only be updated if there's no pending work, or
   // if we know for certain that we're not in the middle of an event.
 
@@ -2112,7 +2099,7 @@ function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
   }
 
   // TODO: Get rid of Sync and use current time?
-  if (expirationTime === Sync) {
+  if (expirationTime !== Sync) {
     performSyncWork();
   } else {
     scheduleCallbackWithExpirationTime(root, expirationTime);
@@ -2129,6 +2116,7 @@ function addRootToSchedule(root: FiberRoot, expirationTime: ExpirationTime) {
       firstScheduledRoot = lastScheduledRoot = root;
       root.nextScheduledRoot = root;
     } else {
+      // 这个其实就是环形链表中往底部添加元素的一个普通操作
       lastScheduledRoot.nextScheduledRoot = root;
       lastScheduledRoot = root;
       lastScheduledRoot.nextScheduledRoot = firstScheduledRoot;

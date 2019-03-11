@@ -108,20 +108,30 @@ import warningWithoutStack from 'shared/warningWithoutStack';
 export type Update<State> = {
   expirationTime: ExpirationTime,
 
+  // export const UpdateState = 0;
+  // export const ReplaceState = 1;
+  // export const ForceUpdate = 2;
+  // export const CaptureUpdate = 3; // 更新渲染的过程中出现错误，会生成一个update，tag为CaptureUpdate
+  // React16 有了error boundary功能，可以在组件内捕获到渲染时的错误，这时候我们可以选择渲染一个新的state来展示这个错误信息，这时候的state的update就是CaptureUpdate
   tag: 0 | 1 | 2 | 3,
+  // 实际执行的操作内容
   payload: any,
   callback: (() => mixed) | null,
-
+  // 对应下一个update
+  // 在updateQueue（一个单向链表）中，有firstUpdate和lastUpdate两个字段，对应着链表的头和尾，而中间的update则用next进行连接
   next: Update<State> | null,
   nextEffect: Update<State> | null,
 };
 
 export type UpdateQueue<State> = {
+  // 每次操作更新完之后的state，可以用于下一次计算，可以理解为react每次计算state需要用到之前的state都是从这里拿
   baseState: State,
 
+  // 记录单向链表的结构
   firstUpdate: Update<State> | null,
   lastUpdate: Update<State> | null,
 
+  // 同上，对应错误产生时的update
   firstCapturedUpdate: Update<State> | null,
   lastCapturedUpdate: Update<State> | null,
 
@@ -195,10 +205,13 @@ export function createUpdate(expirationTime: ExpirationTime): Update<*> {
     expirationTime: expirationTime,
 
     tag: UpdateState,
+    // 实际执行的操作内容
     payload: null,
     callback: null,
-
+    // 对应下一个update
+    // 在updateQueue（一个单向链表）中，有firstUpdate和lastUpdate两个字段，对应着链表的头和尾，而中间的update则用next进行连接
     next: null,
+    //
     nextEffect: null,
   };
 }
@@ -221,6 +234,8 @@ function appendUpdateToQueue<State>(
 export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
   // Update queues are created lazily.
   const alternate = fiber.alternate;
+  // 生成queue1和queue2，分别对应fiber和fiber.alternate, 所以这个函数的最终目的保持queue1和queue2的firstUpdate和lastUpdate一致(也可以视为queue1和queue2一致，只是引用不一样)
+  // 还有就是将update加到queue里面， queue1就是current.updateQueue，queue2就是alternate.updateQueue
   let queue1;
   let queue2;
   if (alternate === null) {
@@ -232,11 +247,17 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
     }
   } else {
     // There are two owners.
+    // alternate存在，说明曾经更新过，先读出q1和q2的值
     queue1 = fiber.updateQueue;
     queue2 = alternate.updateQueue;
+    // 下面各种判断中，基本情况就两种，
+    // 1. q1和q2都不存在， 则创建两个新链表
+    // 2. q1和q2只有其中一个存在，则把存在的clone给不存在的
+    // 3. 两个都存在，什么都不做
     if (queue1 === null) {
       if (queue2 === null) {
         // Neither fiber has an update queue. Create new ones.
+        // 两个链表都为空，所以都添加新的
         queue1 = fiber.updateQueue = createUpdateQueue(fiber.memoizedState);
         queue2 = alternate.updateQueue = createUpdateQueue(
           alternate.memoizedState,
@@ -254,6 +275,7 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
       }
     }
   }
+  // 这种判断有时候要反过来想，即其实目的可能只是为了判断queue2 !== null && queue1 !== queue2，配合上这个函数的目的，这样就一目了然，就是为了判断queue1和queue2是否一致
   if (queue2 === null || queue1 === queue2) {
     // There's only a single queue.
     appendUpdateToQueue(queue1, update);
@@ -268,6 +290,8 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
     } else {
       // Both queues are non-empty. The last update is the same in both lists,
       // because of structural sharing. So, only append to one of the lists.
+      // queue1和queue2共享了firstUpdate和lastUpdate（既然共享了firstUpdate，那么中间的元素肯定也一致了）
+      // 所以给queue1 append一个update的时候，queue2的lastChild的next肯定也指向了lastChild，所以最后只要改变queue2的lastUpdate指针就可以了
       appendUpdateToQueue(queue1, update);
       // But we still need to update the `lastUpdate` pointer of queue2.
       queue2.lastUpdate = update;

@@ -99,12 +99,15 @@ export type Fiber = {|
   tag: WorkTag,
 
   // Unique identifier of this child.
-  // 类似组件中的key
+  // 就是Element中的key
   key: null | string,
 
   // The value of element.type which is used to preserve the identity during
   // reconciliation of this child.
-  // ???
+  // ReactElement.type，也就是createElement中的第一个参数
+  // 如果是native dom则是一个字符串
+  // 如果是function component则是一个函数
+
   elementType: any,
 
   // The resolved function/class/ associated with this fiber.
@@ -114,8 +117,9 @@ export type Fiber = {|
   type: any,
 
   // The local state associated with this fiber.
+  // 与Fiber相关的本地状态，，例如浏览器环境就是DOM节点
   // 对于HostRoot，stateNode是一个FiberRoot类的实例
-  // 对于ClassComponent是构造函数
+  // 对于ClassComponent是构造函数的instance
   // 对于HostComponent是原生dom节点(待确认？)
   stateNode: any,
 
@@ -129,7 +133,7 @@ export type Fiber = {|
   // This is effectively the parent, but there can be multiple parents (two)
   // so this is only the parent of the thing we're currently processing.
   // It is conceptually the same as the return address of a stack frame.
-  // 就是parent fiber，类似于栈帧的return
+  // 就是parent fiber，类似于栈帧的return，用于处理完当前Fiber之后向上返回
   return: Fiber | null,
 
   // Singly Linked List Tree Structure.
@@ -144,11 +148,13 @@ export type Fiber = {|
   ref: null | (((handle: mixed) => void) & {_stringRef: ?string}) | RefObject,
 
   // Input is the data coming into process this fiber. Arguments. Props.
-  pendingProps: any, // This type will be more specific once we overload the tag. 组件收到的新的props
-  memoizedProps: any, // The props used to create the output.组件内保存的旧的props
+  // 组件收到的新的props
+  pendingProps: any, // This type will be more specific once we overload the tag.
+  // 组件内保存的旧的props
+  memoizedProps: any, // The props used to create the output.
 
   // A queue of state updates and callbacks.
-  // 状态更新队列？
+  // 该Fiber对应的组件产生的update会存放在这个队列里面
   updateQueue: UpdateQueue<any> | null,
 
   // The state used to create the output
@@ -156,6 +162,7 @@ export type Fiber = {|
   memoizedState: any,
 
   // A linked-list of contexts that this fiber depends on
+  // 一个列表，存放这个Fiber依赖的context
   contextDependencies: ContextDependencyList | null,
 
   // Bitfield that describes properties about the fiber and its subtree. E.g.
@@ -165,6 +172,10 @@ export type Fiber = {|
   // value should remain unchanged throughout the fiber's lifetime, particularly
   // before its child fibers are created.
   // fiber的工作模式，例如ConcurrentMode等等
+  // 用来描述当前Fiber和其child的Bitfield
+  // ConcurrentMode表示异步渲染
+  // Fiber被创建时会继承父Fiber
+  // 但是创建之后不应该被修改，尤其是child fiber已经被创建之后
   mode: TypeOfMode,
 
   // Effect
@@ -174,6 +185,7 @@ export type Fiber = {|
 
   // Singly linked list fast path to the next fiber with side-effects.
   // 下一个带有side-effects的fiber (怎么得到的？)
+  // 单链表用于快速查找下一个side effect
   nextEffect: Fiber | null,
 
   // The first and last fiber with side-effect within this subtree. This allows
@@ -184,9 +196,12 @@ export type Fiber = {|
 
   // Represents a time in the future by which this work should be completed.
   // Does not include work found in its subtree.
+  // 代表任务在未来的哪个时间点应该被完成
+  // 不包括子树产生的任务
   expirationTime: ExpirationTime,
 
   // This is used to quickly determine if a subtree has no pending changes.
+  // 用于快速检查子树是否在有在等待的任务
   childExpirationTime: ExpirationTime,
 
   // This is a pooled version of a Fiber. Every fiber that gets updated will

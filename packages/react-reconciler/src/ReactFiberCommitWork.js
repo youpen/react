@@ -1151,8 +1151,10 @@ function commitWork(current: Fiber | null, finishedWork: Fiber): void {
       return;
     }
     case HostComponent: {
+      // 从workInProgress fiber中取出对应的element
       const instance: Instance = finishedWork.stateNode;
       if (instance != null) {
+        // 此处是应用fiber上面数据的方式
         // Commit the work prepared earlier.
         const newProps = finishedWork.memoizedProps;
         // For hydration we reuse the update path but we treat the oldProps
