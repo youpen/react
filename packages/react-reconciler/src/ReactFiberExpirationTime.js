@@ -68,6 +68,7 @@ function ceiling(num: number, precision: number): number {
   //   ceiling(49,precision)
 }
 
+// 以BucketSize为单位计算出expirationTime，也就是任何一个算出来的值的差值是BucketSize的倍数
 function computeExpirationBucket(
   currentTime,
   expirationInMs,
@@ -75,7 +76,12 @@ function computeExpirationBucket(
 ): ExpirationTime {
   return (
     MAGIC_NUMBER_OFFSET -
-
+    // 最大时间戳 - currentTime，随着时间流逝，currentTime变大，也就是最新的expirationTime随时间变小，
+    // 调试代码
+    // setInterval(() => {
+    //     const res = computeAsyncExpiration(msToExpirationTime(new Date().getTime()))
+    //     console.log(res);
+    // }, 2000)
     ceiling(
       MAGIC_NUMBER_OFFSET - currentTime + expirationInMs / UNIT_SIZE,
       bucketSizeMs / UNIT_SIZE, // XXX_PRIORITY_BATCH_SIZE / 10

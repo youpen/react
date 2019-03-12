@@ -1601,10 +1601,12 @@ function computeExpirationForFiber(currentTime: ExpirationTime, fiber: Fiber) {
   if ((fiber.mode & ConcurrentMode) === NoContext) {
     // Outside of concurrent mode, updates are always synchronous.
     expirationTime = Sync;
+    // isWorking 有任务正在更新？
   } else if (isWorking && !isCommitting) {
     // During render phase, updates expire during as the current render.
     expirationTime = nextRenderExpirationTime;
   } else {
+    // 在这里之前是根据外界值进行改变expirationTime
     switch (priorityLevel) {
       case ImmediatePriority:
         expirationTime = Sync;
@@ -1938,7 +1940,9 @@ let lastCommittedRootDuringThisBatch: FiberRoot | null = null;
 function recomputeCurrentRendererTime() {
   // originalStartTimeMs是一个固定值，react包加载的过程就会获得这个时间
   // 所以下面那个值就是从js加载完成到现在的一个时间间隔
-  const currentTimeMs = now() - originalStartTimeMs;
+  const currentTimeMs = now() - originalStartTimeMs; // 流逝的时间
+  // 所以这个时间就是 当前时间戳 - React包刚加载时的时间戳，然后转为UNIT_SIZE为10的时间单位
+  // 经过的时间越久，这个算出来的时间就越小，因为currentTimeMs是被减的
   currentRendererTime = msToExpirationTime(currentTimeMs);
 }
 
@@ -2052,6 +2056,8 @@ function requestCurrentTime() {
   // But the scheduler time can only be updated if there's no pending work, or
   // if we know for certain that we're not in the middle of an event.
 
+
+  // currentSchedulerTime 与 currentRendererTime不一样的情况就是，currentRendererTime被重新赋值，而currentSchedulerTime还没有
   if (isRendering) {
     // We're already rendering. Return the most recently read time.
     return currentSchedulerTime;
@@ -2062,6 +2068,7 @@ function requestCurrentTime() {
     nextFlushedExpirationTime === NoWork ||
     nextFlushedExpirationTime === Never
   ) {
+    // 这种情况也是初始的情况，所以recomputeCurrentRendererTime也是最初的expirationTime计算函数
     // If there's no pending work, or if the pending work is offscreen, we can
     // read the current time without risk of tearing.
     recomputeCurrentRendererTime();
