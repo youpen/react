@@ -36,7 +36,7 @@ function ceiling(num: number, precision: number): number {
   return (((num / precision) | 0) + 1) * precision;
   // 假设这里没有 | 0取整
   // 则相当于 num + precision
-  // 效果应该和ceiling(num/precision)一样, 唯一的区别就是当num可以被precision整除的时候，没有多添加1个precision
+  // 效果应该和Math.ceil(num/precision)一样, 唯一的区别就是当num可以被precision整除的时候，没有多添加1个precision
 
   // 保证计算值最小的差是25
   // 比如， 26、27、28...49都算作50
@@ -45,6 +45,27 @@ function ceiling(num: number, precision: number): number {
 
   // 目前就是为了让两个相近的更新任务拥有相同的expirationTime，用于batchedUpdates（例如连续调用了多个setState的情况）
   // 令这些batchUpdates在同一次更新中一起完成
+
+  // 调试用代码
+  //   function ceiling(num, precision) {
+  //     return (((num / precision) | 0) + 1) * precision;
+  //   }
+  //
+  //   const test = 1234
+  //   const precision = 25
+  //   console.log(Math.ceil(test/precision) * precision)
+  //   console.log(ceiling(test, precision))
+  // // for (var i = 25; i < 1000; i++) {
+  // //     const a =  Math.ceil(i/precision) * precision
+  // //     const b = ceiling(i,precision)
+  // //     console.log(b)
+  // //     if (a !== b) {
+  // // //         console.log(111111)
+  // // //         console.log(a)
+  // // //         console.log(b)
+  // //     }
+  // // }
+  //   ceiling(49,precision)
 }
 
 function computeExpirationBucket(
