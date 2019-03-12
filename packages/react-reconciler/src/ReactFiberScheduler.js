@@ -1936,6 +1936,8 @@ let nestedUpdateCount: number = 0;
 let lastCommittedRootDuringThisBatch: FiberRoot | null = null;
 
 function recomputeCurrentRendererTime() {
+  // originalStartTimeMs是一个固定值，react包加载的过程就会获得这个时间
+  // 所以下面那个值就是从js加载完成到现在的一个时间间隔
   const currentTimeMs = now() - originalStartTimeMs;
   currentRendererTime = msToExpirationTime(currentTimeMs);
 }

@@ -7,6 +7,9 @@
  * @flow
  */
 
+
+// 数字越大，优先级越高
+// 这种计算模块，如果不理解，尝试用测试数值进行输入，分析输出结果
 import MAX_SIGNED_31_BIT_INT from './maxSigned31BitInt';
 
 export type ExpirationTime = number;
@@ -28,8 +31,20 @@ export function expirationTimeToMs(expirationTime: ExpirationTime): number {
   return (MAGIC_NUMBER_OFFSET - expirationTime) * UNIT_SIZE;
 }
 
+// precision的可能值是 LOW_PRIORITY_BATCH_SIZE -> 25，HIGH_PRIORITY_BATCH_SIZE -> 10
 function ceiling(num: number, precision: number): number {
   return (((num / precision) | 0) + 1) * precision;
+  // 假设这里没有 | 0取整
+  // 则相当于 num + precision
+  // 效果应该和ceiling(num/precision)一样, 唯一的区别就是当num可以被precision整除的时候，没有多添加1个precision
+
+  // 保证计算值最小的差是25
+  // 比如， 26、27、28...49都算作50
+  // 50、51、52、53、、、73、74都算作75
+  // 于Math.ceil的效果区别是，要多加一个precision，当整除时，得到50、75、100等，得到的结果是这样50-> 75 , 75 -> 100, 100 -> 125
+
+  // 目前就是为了让两个相近的更新任务拥有相同的expirationTime，用于batchedUpdates（例如连续调用了多个setState的情况）
+  // 令这些batchUpdates在同一次更新中一起完成
 }
 
 function computeExpirationBucket(
@@ -39,17 +54,20 @@ function computeExpirationBucket(
 ): ExpirationTime {
   return (
     MAGIC_NUMBER_OFFSET -
+
     ceiling(
       MAGIC_NUMBER_OFFSET - currentTime + expirationInMs / UNIT_SIZE,
-      bucketSizeMs / UNIT_SIZE,
+      bucketSizeMs / UNIT_SIZE, // XXX_PRIORITY_BATCH_SIZE / 10
     )
   );
 }
 
+
+
 export const LOW_PRIORITY_EXPIRATION = 5000;
 export const LOW_PRIORITY_BATCH_SIZE = 250;
 
-// 得到相对较长的时间，对应普通的异步任务
+// 得到较小的数值，对应普通的异步任务
 export function computeAsyncExpiration(
   currentTime: ExpirationTime,
 ): ExpirationTime {
@@ -74,7 +92,7 @@ export function computeAsyncExpiration(
 export const HIGH_PRIORITY_EXPIRATION = __DEV__ ? 500 : 150;
 export const HIGH_PRIORITY_BATCH_SIZE = 100;
 
-// 得到相对较短的时间，对应用户交互产生的任务，优先级相对较高
+// 得到较大的数值，对应用户交互产生的任务，优先级相对较高
 export function computeInteractiveExpiration(currentTime: ExpirationTime) {
   return computeExpirationBucket(
     currentTime,
