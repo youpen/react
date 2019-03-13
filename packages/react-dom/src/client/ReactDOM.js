@@ -375,6 +375,8 @@ function ReactRoot(
   const root = createContainer(container, isConcurrent, hydrate);
   this._internalRoot = root; // 记住这个属性就是ReactFiberRoot
 }
+
+// ReactRoot.render主要功能就是调用了updateContainer方法
 ReactRoot.prototype.render = function(
   children: ReactNodeList,
   callback: ?() => mixed,

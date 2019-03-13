@@ -159,10 +159,12 @@ export type Fiber = {|
 
   // The state used to create the output
   // 组件中保存的旧的state
+  // 想想state为什么没有对应的pendingState？，好像因为state是需要计算，是在updateQueue里面计算的，（姑且理解为updateQueue为对应的pendingState？
   memoizedState: any,
 
   // A linked-list of contexts that this fiber depends on
-  // 一个列表，存放这个Fiber依赖的context
+
+  // 用于存储fiber所以来的context？有啥用？
   contextDependencies: ContextDependencyList | null,
 
   // Bitfield that describes properties about the fiber and its subtree. E.g.
@@ -181,6 +183,7 @@ export type Fiber = {|
   // Effect
   // 表示这个fiber所包含的副作用，类型在ReactSideEffectTags.js中，(待确定)
   // 目前猜测是diff结果的类型
+  // effect标记组件最后要进行什么的更新，还有是否执行生命周期等等
   effectTag: SideEffectTag,
 
   // Singly linked list fast path to the next fiber with side-effects.
@@ -196,12 +199,20 @@ export type Fiber = {|
 
   // Represents a time in the future by which this work should be completed.
   // Does not include work found in its subtree.
+<<<<<<< Updated upstream
   // 代表任务在未来的哪个时间点应该被完成
   // 不包括子树产生的任务
   expirationTime: ExpirationTime,
 
   // This is used to quickly determine if a subtree has no pending changes.
   // 用于快速检查子树是否在有在等待的任务
+=======
+  // 任务的过期时间
+  expirationTime: ExpirationTime,
+
+  // This is used to quickly determine if a subtree has no pending changes.
+  // 子节点如果产生更新，子节点的过期时间
+>>>>>>> Stashed changes
   childExpirationTime: ExpirationTime,
 
   // This is a pooled version of a Fiber. Every fiber that gets updated will
@@ -211,6 +222,7 @@ export type Fiber = {|
   // 1、commit之后的fiber，就是current fiber，这个fiber所包含的副作用已经被应用到了dom上面
   // 2、work-in-progress fiber，副作用尚未被commit的fiber
   // current fiber的alternate是work-in-progress fiber，反之亦然
+  // double buffering， 避免了进行下一次更新的时候需要重新创建fiber的内存消耗
   alternate: Fiber | null,
 
   // Time spent rendering this Fiber and its descendants for the current update.

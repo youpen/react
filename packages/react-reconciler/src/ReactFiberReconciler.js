@@ -136,7 +136,7 @@ function scheduleRootUpdate(
     }
   }
 
-  // createUpdate用于生成一个更新
+  // createUpdate用于生成一个更新，这个update用于标记React需要更新的地点？
   const update = createUpdate(expirationTime);
   // Caution: React DevTools currently depends on this property
   // being called "element".
@@ -157,6 +157,7 @@ function scheduleRootUpdate(
   flushPassiveEffects();
   // 将一个update加入到fiber当中，这里的current就是一个fiber
   enqueueUpdate(current, update);
+  // 告诉react，有新的任务产生了，开始调度任务
   scheduleWork(current, expirationTime);
 
   return expirationTime;
@@ -184,7 +185,7 @@ export function updateContainerAtExpirationTime(
       }
     }
   }
-
+  // 这里先不管，因为目前parentComponent一定是null
   const context = getContextForSubtree(parentComponent);
   if (container.context === null) {
     container.context = context;
