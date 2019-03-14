@@ -199,20 +199,14 @@ export type Fiber = {|
 
   // Represents a time in the future by which this work should be completed.
   // Does not include work found in its subtree.
-<<<<<<< Updated upstream
+  // 任务的过期时间
   // 代表任务在未来的哪个时间点应该被完成
   // 不包括子树产生的任务
   expirationTime: ExpirationTime,
 
   // This is used to quickly determine if a subtree has no pending changes.
   // 用于快速检查子树是否在有在等待的任务
-=======
-  // 任务的过期时间
-  expirationTime: ExpirationTime,
-
-  // This is used to quickly determine if a subtree has no pending changes.
   // 子节点如果产生更新，子节点的过期时间
->>>>>>> Stashed changes
   childExpirationTime: ExpirationTime,
 
   // This is a pooled version of a Fiber. Every fiber that gets updated will
