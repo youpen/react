@@ -1738,7 +1738,11 @@ function resolveRetryThenable(boundaryFiber: Fiber, thenable: Thenable) {
 }
 
 // 目前还看不出这个函数的作用，好像只是从触发的fiber开始，一直往上遍历，更新所有expiration time
+// 这个方法是从scheduleWork调用，也就是scheduleWork的第一步，
+// 比如某个子节点触发setState最后到scheduleWork，然后就会从该子节点向上查到，直到找到rootFiber，同时还会一路更新父节点的childExpirationTime
+// 为什么要这样做呢？
 function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
+  // 用于记录，暂时忽略
   recordScheduleUpdate();
 
   if (__DEV__) {
@@ -1750,7 +1754,15 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
 
   // 更新当前fiber的expiration time
   // Update the source fiber's expiration time
+  // source fiber就是触发更新的fiber
   if (fiber.expirationTime < expirationTime) {
+    // 如果参数的expirationTime更大，说明最新的优先级更高，更新source fiber的expirationTime
+    // 参数的expirationTime有两种来源
+    // 1. 初始化，即调用ReactDom.render时设置的expirationTime
+    // 2. 调用setState时，也就是React.Component的updater里面的方法会创建一个expirationTime
+    // 那source fiber的expirationTime是哪来的？初始化更新的时候来的？上一次更新来的？
+
+    // 但是至少要知道，越晚计算的expirationTime，值越大，优先级越大
     fiber.expirationTime = expirationTime;
   }
   // 更新alternate的expiration time
@@ -1763,7 +1775,7 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
   // Walk the parent path to the root and update the child expiration time.
   let node = fiber.return;
   let root = null;
-  // 遍历fiber，找到HostRoot
+  // 遍历fiber，找到HostRoot， fiberRoot的tag就是HostRoot
   if (node === null && fiber.tag === HostRoot) {
     root = fiber.stateNode;
   } else {
@@ -1791,7 +1803,7 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
     }
   }
 
-  if (enableSchedulerTracing) {
+  if (false) {
     if (root !== null) {
       const interactions = __interactionsRef.current;
       if (interactions.size > 0) {
@@ -1826,6 +1838,7 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
       }
     }
   }
+  // 找到触发更新的节点的rootFiber，返回
   return root;
 }
 
@@ -1869,13 +1882,33 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
   if (
     // If we're in the render phase, we don't need to schedule this root
     // for an update, because we'll do it before we exit...
+    // isWorking包含了render和commit两个步骤
+    // 这里可以理解为处于isWorking但是又不是isCommitting以外的所有情况（其实就是排除rendering情况？
     !isWorking ||
     isCommitting ||
+    // isCommitting也可以requestWork，是因为这表明上一次调度已经结束了，可以请求下一个工作
+    // isCommitting值的改变是在commitRoot函数里面
     // ...unless this is a different root than the one we're rendering.
+    // fiberRoot,也就是调用多个ReactDom.render的情况下发生的，一般情况很少见
+    // 大部分情况nextRoot等于root
     nextRoot !== root
   ) {
+    // 只要不是rendering阶段，执行以下操作
+    // 上面调用了markPendingPriorityLevel函数，所以scheduleWork传入的expirationTime并不一定是root.expirationTime
     const rootExpirationTime = root.expirationTime;
     requestWork(root, rootExpirationTime);
+  }
+  // 防止在shouldComponentDidUpdate中又调用setState导致的循环
+  if (nestedUpdateCount > NESTED_UPDATE_LIMIT) {
+    // Reset this back to zero so subsequent updates don't throw.
+    nestedUpdateCount = 0;
+    invariant(
+      false,
+      'Maximum update depth exceeded. This can happen when a ' +
+      'component repeatedly calls setState inside ' +
+      'componentWillUpdate or componentDidUpdate. React limits ' +
+      'the number of nested updates to prevent infinite loops.',
+    );
   }
 }
 
@@ -1940,6 +1973,7 @@ function scheduleCallbackWithExpirationTime(
 ) {
   if (callbackExpirationTime !== NoWork) {
     // A callback is already scheduled. Check its expiration time (timeout).
+    // callbackExpirationTime在函数scheduleCallbackWithExpirationTime和performWork中有赋值
     if (expirationTime < callbackExpirationTime) {
       // Existing callback has sufficient timeout. Exit.
       return;
@@ -1956,9 +1990,14 @@ function scheduleCallbackWithExpirationTime(
   }
 
   callbackExpirationTime = expirationTime;
+  // currentMs表示从react包加载到现在，经历的时间长
   const currentMs = now() - originalStartTimeMs;
   const expirationTimeMs = expirationTimeToMs(expirationTime);
+  // 所以这个是任务产生的时间与现在时间的差值？
   const timeout = expirationTimeMs - currentMs;
+  // callbackID用于取消任务
+  // performAsyncWork是以回调的形式传进去的？
+  // 这个函数的位置在packages/scheduler/src/scheduler.js
   callbackID = scheduleDeferredCallback(performAsyncWork, {timeout});
 }
 
@@ -2077,12 +2116,14 @@ function requestCurrentTime() {
 function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
   addRootToSchedule(root, expirationTime);
   // performWork期间都是isRendering
-  if (isRendering) {
+  if (isRendering) { // ?目前还搞不清楚这个判断
     // Prevent reentrancy. Remaining work will be scheduled at the end of
     // the currently rendering batch.
     return;
   }
 
+  // batchUpdate可能是面试常问题目
+  // 当react判断是batchUpdate时，例如调用了三次setState，这个函数会被调用三次，然后在下面这个判断中止
   if (isBatchingUpdates) {
     // Flush work at the end of the batch.
     if (isUnbatchingUpdates) {
@@ -2096,9 +2137,11 @@ function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
   }
 
   // TODO: Get rid of Sync and use current time?
-  if (expirationTime !== Sync) {
+  if (expirationTime === Sync) {
     performSyncWork();
   } else {
+    // 接下来这部分功能react可能抽取到独立的npm包中
+    // 里面包括了调用浏览器的requestIdleCallback功能等等，设立deadline等等
     scheduleCallbackWithExpirationTime(root, expirationTime);
   }
 }
@@ -2110,15 +2153,21 @@ function addRootToSchedule(root: FiberRoot, expirationTime: ExpirationTime) {
     // This root is not already scheduled. Add it.
     root.expirationTime = expirationTime;
     if (lastScheduledRoot === null) {
-      firstScheduledRoot = lastScheduledRoot = root;
-      root.nextScheduledRoot = root;
+      // 这一步可以理解为初始化才会使用，
+      // 首先root.nextScheduleRoot === null
+      // 然后lastScheduleRoot === null，说明这是第一次操作scheduleRoot链表
+      firstScheduledRoot = lastScheduledRoot = root; // 初始化链表
+      root.nextScheduledRoot = root; // 这一行这种情况，就是一般的只有一个fiberRoot的情况
     } else {
+      // nextScheduleRoot === null, 并且lastScheduleRoot !== null,
+      // 说明当前的root没有被添加到scheduleRoot当中
       // 这个其实就是环形链表中往底部添加元素的一个普通操作
       lastScheduledRoot.nextScheduledRoot = root;
       lastScheduledRoot = root;
       lastScheduledRoot.nextScheduledRoot = firstScheduledRoot;
     }
   } else {
+    // 当前root的nextScheduleRoot !== null，说明当前root已经被添加到scheduleRoot当中
     // This root is already scheduled, but its priority may have increased.
     const remainingExpirationTime = root.expirationTime;
     if (expirationTime > remainingExpirationTime) {
@@ -2481,10 +2530,14 @@ function batchedUpdates<A, R>(fn: (a: A) => R, a: A): R {
   const previousIsBatchingUpdates = isBatchingUpdates;
   isBatchingUpdates = true;
   try {
-    return fn(a);
+    return fn(a); // fn就是我们在开发时绑定的事件回调
+    // 注意，如果我们是setTimeout(() => { 执行多个setState }, 0)，这种情况是在window对象下执行函数，
+    // 已经没有了isBatchingUpdates这个判断是否batchUpdate的变量，所以没有batchupdate的效果
+    // 但是如果直接使用batchUpdate的api，即使是在setTimeout中执行，也是有效果的
   } finally {
     isBatchingUpdates = previousIsBatchingUpdates;
     if (!isBatchingUpdates && !isRendering) {
+      // 这个函数可以
       performSyncWork();
     }
   }

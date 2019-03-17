@@ -13,14 +13,23 @@
           this.state = {test : 1}
         }
 
-        update = () => {
-          this.setState({
-            test: this.state.test + 1,
+        setTimeoutUpdate = () => {
+          setTimeout(() => {
+            this.update();
           })
+        }
+
+        update = () => {
+          const num = this.state.test;
+          console.log('===1', this.state.test);
+          this.setState({test:  num + 1}
+          );
+          console.log('===2', this.state.test);
         }
 
         render() {
           return <div>
+            <button onClick={this.setTimeoutUpdate} />
             <button onClick={this.update} />
             <div>{this.state.test}</div>
           </div>

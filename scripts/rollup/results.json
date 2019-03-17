@@ -4,8 +4,8 @@
       "filename": "react.development.js",
       "bundleType": "UMD_DEV",
       "packageName": "react",
-      "size": 101989,
-      "gzip": 26428
+      "size": 102110,
+      "gzip": 26574
     },
     {
       "filename": "react.production.min.js",
@@ -46,15 +46,15 @@
       "filename": "react-dom.development.js",
       "bundleType": "UMD_DEV",
       "packageName": "react-dom",
-      "size": 786419,
-      "gzip": 179413
+      "size": 797826,
+      "gzip": 187200
     },
     {
       "filename": "react-dom.production.min.js",
       "bundleType": "UMD_PROD",
       "packageName": "react-dom",
-      "size": 107943,
-      "gzip": 34763
+      "size": 107811,
+      "gzip": 34739
     },
     {
       "filename": "react-dom.development.js",
@@ -795,8 +795,8 @@
       "filename": "react-dom.profiling.min.js",
       "bundleType": "UMD_PROFILING",
       "packageName": "react-dom",
-      "size": 110931,
-      "gzip": 35659
+      "size": 110501,
+      "gzip": 35519
     },
     {
       "filename": "scheduler-tracing.development.js",

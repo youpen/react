@@ -315,6 +315,9 @@ function unstable_wrapCallback(callback) {
 }
 
 function unstable_scheduleCallback(callback, deprecated_options) {
+  // callback是performAsyncWork
+  // getCurrentTime就是获取当前时间，也就是reconciler模块用的now
+  // currentEventStartTime在这个模块中的其他地方会修改和使用，但是在react-dom中不会用到，先忽略
   var startTime =
     currentEventStartTime !== -1 ? currentEventStartTime : getCurrentTime();
 
@@ -325,6 +328,8 @@ function unstable_scheduleCallback(callback, deprecated_options) {
     typeof deprecated_options.timeout === 'number'
   ) {
     // FIXME: Remove this branch once we lift expiration times out of React.
+    // 从requestWork调用到这里，目前只会走这个分支
+    // 目前来看timeout越小，优先级越大
     expirationTime = startTime + deprecated_options.timeout;
   } else {
     switch (currentPriorityLevel) {
@@ -348,41 +353,53 @@ function unstable_scheduleCallback(callback, deprecated_options) {
 
   var newNode = {
     callback,
-    priorityLevel: currentPriorityLevel,
+    priorityLevel: currentPriorityLevel, // 这个值暂时用不到，先不看
     expirationTime,
     next: null,
     previous: null,
   };
 
+  // 接下来部分就是将newNode插入到链表中，并且按expirationTime从大到小的顺序
   // Insert the new callback into the list, ordered first by expiration, then
   // by insertion. So the new callback is inserted any other callback with
   // equal expiration.
+  // firstCallbackNode 是一个双向循环链表的头部，这个链表在此模块（scheduler）模块维护
   if (firstCallbackNode === null) {
     // This is the first callback in the list.
+    // 给环形链表添加第一个元素
     firstCallbackNode = newNode.next = newNode.previous = newNode;
     ensureHostCallbackIsScheduled();
   } else {
     var next = null;
     var node = firstCallbackNode;
+    // 从头部（firstCallbackNode）开始遍历链表，知道
     do {
-      if (node.expirationTime > expirationTime) {
+      // 这个expirationTime是此函数顶部定义的局部变量
+      // 走进这个分支，firstCallbackNode已经不是null，说明之前已经把某个任务的callback添加进来了
+      // 这里的expirationTime从计算方式来看，数值越大，优先级反而越小
+      if (node.expirationTime > expirationTime) { // TODO 这里是不是大小判断反了？将来可能会改动
+        // 看下面注释的意思是，进入这个分支代表新的callback优先级更高？
         // The new callback expires before this one.
-        next = node;
+        next = node; // next这个局部变量就是为了从链表中找出比当前新进入的callback优先级更小的任务
+        // 跳出循环
         break;
       }
       node = node.next;
-    } while (node !== firstCallbackNode);
+    } while (node !== firstCallbackNode); // 由于是环形链表，这是已经遍历一圈的标记
 
     if (next === null) {
+      // 这个判断表示新的callback的expirationTime最小，应该排在最后，也就是链表的head的前一个
       // No callback with a later expiration was found, which means the new
       // callback has the latest expiration in the list.
       next = firstCallbackNode;
     } else if (next === firstCallbackNode) {
+      // 这个分支是指新的callback的expirationTime最大，那么应该放在头部，这里直接改变头部（firstCallbackNode）指向newNode
+      // 后面插入操作正常执行，与上面的判断分支类似
       // The new callback has the earliest expiration in the entire list.
       firstCallbackNode = newNode;
       ensureHostCallbackIsScheduled();
     }
-
+    // 环形双向链表插入的常规操作，这里是指在next节点之前插入newNode
     var previous = next.previous;
     previous.next = next.previous = newNode;
     newNode.next = next;
