@@ -1993,7 +1993,8 @@ function scheduleCallbackWithExpirationTime(
   // currentMs表示从react包加载到现在，经历的时间长
   const currentMs = now() - originalStartTimeMs;
   const expirationTimeMs = expirationTimeToMs(expirationTime);
-  // 所以这个是任务产生的时间与现在时间的差值？
+  // 这里反推expirationTime的理解，就是任务创建时的时间戳 + 预计多长时间执行完
+  // 所以这个timeout就是剩余的时间
   const timeout = expirationTimeMs - currentMs;
   // callbackID用于取消任务
   // performAsyncWork是以回调的形式传进去的？
@@ -2268,6 +2269,8 @@ function performAsyncWork() {
       if (firstScheduledRoot !== null) {
         recomputeCurrentRendererTime();
         let root: FiberRoot = firstScheduledRoot;
+        // 对每个rootFiber调用didExpireAtExpirationTime
+        // didExpireAtExpirationTime就是判断root的expirationTime是否超时，超时则
         do {
           didExpireAtExpirationTime(root, currentRendererTime);
           // The root schedule is circular, so this is never null.
