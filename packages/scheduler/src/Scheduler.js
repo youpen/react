@@ -491,12 +491,22 @@ function unstable_getCurrentPriorityLevel() {
   return currentPriorityLevel;
 }
 
-// 提供给react-reconciler中的performAsyncWork使用的函数
 function unstable_shouldYield() {
   return (
+    // currentDidTimeout表示没有callback超时
+    // shouldYieldToHost表示当前帧是否还有剩余时间
+
+    // 关于firstCallbackNode.expirationTime < currentExpirationTime
+    // firstCallbackNode是在scheduleCallback中被修改，也就是用户可能操作触发新任务的时候修改
+    // 而currentExpirationTime是当前正在执行的callback(performAsyncWork)的expirationTime，在flushFirstCallback中被修改
+    // 而从firstCallbackNode到执行flushFirstCallback的过程中，使用了MessageChannel让出线程
+    // 所以在这段时间用户操作可能出现新任务，导致firstCallbackNode.expirationTime !== currentExpirationTime
+    // 所以这里是判断是否有新任务进来，并且新任务的优先级更高？
+
+    // 这个函数会在接下来的各个流程中用到，每次调用这个函数就是检查是否有新任务，考虑是否需要中止
+    // TODO 整理中断位置、scheduleCallback、performWork、performWorkOnRoot、renderRoot
     !currentDidTimeout &&
-    ((firstCallbackNode !== null &&
-      firstCallbackNode.expirationTime < currentExpirationTime) ||
+    ((firstCallbackNode.expirationTime < currentExpirationTime) ||
       shouldYieldToHost())
   );
 }

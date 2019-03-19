@@ -2179,13 +2179,19 @@ function addRootToSchedule(root: FiberRoot, expirationTime: ExpirationTime) {
 }
 
 function findHighestPriorityRoot() {
+  // 这个方法的作用有两个
+  // 1 删除NoWork的root
+  // 2 找到优先级最高的root
   let highestPriorityWork = NoWork;
   let highestPriorityRoot = null;
+  // lastScheduledRoot或者firstScheduleRoot === null都代表着scheduleRoot为空？
   if (lastScheduledRoot !== null) {
     let previousScheduledRoot = lastScheduledRoot;
     let root = firstScheduledRoot;
+    // scheduleRoot是一个单向循环链表
     while (root !== null) {
       const remainingExpirationTime = root.expirationTime;
+      // 删除掉当前所有为NoWork的root？
       if (remainingExpirationTime === NoWork) {
         // This root no longer has work. Remove it from the scheduler.
 
@@ -2204,17 +2210,21 @@ function findHighestPriorityRoot() {
           break;
         } else if (root === firstScheduledRoot) {
           // This is the first root in the list.
+          // 环形链表删除当前firstScheduleRoot位置所在的root
           const next = root.nextScheduledRoot;
           firstScheduledRoot = next;
           lastScheduledRoot.nextScheduledRoot = next;
           root.nextScheduledRoot = null;
         } else if (root === lastScheduledRoot) {
-          // This is the last root in the list.
+          // This is the last root in the list
+          // previousScheduledRoot在下面的分支可能被修改了
+          // 环形链表删除当前lastScheduledRoot位置所在的root
           lastScheduledRoot = previousScheduledRoot;
           lastScheduledRoot.nextScheduledRoot = firstScheduledRoot;
           root.nextScheduledRoot = null;
           break;
         } else {
+          // 处于链表中间的root，直接删除
           previousScheduledRoot.nextScheduledRoot = root.nextScheduledRoot;
           root.nextScheduledRoot = null;
         }
@@ -2260,7 +2270,10 @@ function shouldYieldToRenderer() {
 
 function performAsyncWork() {
   try {
+    // shouldYieldToRenderer返回true是没有超时并且当前帧没有剩余时间
+    // !shouldYieldToRenderer就是超时或者还有剩余时间的情况
     if (!shouldYieldToRenderer()) {
+      // 未超时并且没有更高优先级任务进来
       // The callback timed out. That means at least one update has expired.
       // Iterate through the root schedule. If they contain expired work, set
       // the next render expiration time to the current time. This has the effect
@@ -2270,7 +2283,7 @@ function performAsyncWork() {
         recomputeCurrentRendererTime();
         let root: FiberRoot = firstScheduledRoot;
         // 对每个rootFiber调用didExpireAtExpirationTime
-        // didExpireAtExpirationTime就是判断root的expirationTime是否超时，超时则
+        // didExpireAtExpirationTime就是判断root的expirationTime是否超时，超时则更新root的nextExpirationTime
         do {
           didExpireAtExpirationTime(root, currentRendererTime);
           // The root schedule is circular, so this is never null.
@@ -2289,42 +2302,64 @@ function performSyncWork() {
 }
 
 function performWork(minExpirationTime: ExpirationTime, isYieldy: boolean) {
+  // performAsyncWork进来的，minExpirationTime === noWork， isYieldy === true
+  // performSyncWork进来的，minExpirationTime === Sync, isYieldy === false
+
+
   // Keep working on roots until there's no more work, or until there's a higher
   // priority event.
   // 这一步可能是中断机制，每次执行performWork,都会先寻找一个高优先级
   findHighestPriorityRoot();
-
+  // 从performAsyncWork进来，isYieldy为true
+  // 异步情况
+  // 在这里先大致理解isYieldy就是还有时间更新的意思？
+  // isYieldy， 可以屈服（1.虽然这一帧没有时间，但是任务过期，但是还是要执行 2. 这一帧还有时间，继续执行
+  // 文章里提及这一句，加上那个WIP的issue链接https://github.com/facebook/react/pull/14557
   if (isYieldy) {
+    // Async模式
+    // 更新currentRendererTime
     recomputeCurrentRendererTime();
     currentSchedulerTime = currentRendererTime;
 
-    if (enableUserTimingAPI) {
-      const didExpire = nextFlushedExpirationTime > currentRendererTime;
-      const timeout = expirationTimeToMs(nextFlushedExpirationTime);
-      stopRequestCallbackTimer(didExpire, timeout);
-    }
+    // 先忽略
+    // if (enableUserTimingAPI) {
+    //   const didExpire = nextFlushedExpirationTime > currentRendererTime;
+    //   const timeout = expirationTimeToMs(nextFlushedExpirationTime);
+    //   stopRequestCallbackTimer(didExpire, timeout);
+    // }
 
     while (
       nextFlushedRoot !== null &&
       nextFlushedExpirationTime !== NoWork &&
-      minExpirationTime <= nextFlushedExpirationTime &&
-      !(didYield && currentRendererTime > nextFlushedExpirationTime)
+      minExpirationTime <= nextFlushedExpirationTime && // 对于performAsyncWork，minExpirationTime === noWork === 0，这里是一定成立的
+        // 上面部分和sync模式是一样的
+      // didYield和shouldYield一样
+      !didYield || // 这里表示超时或者当前帧没有时间
+        //currentRendererTime在每次recomputeCurrentRendererTime时会更新，表示的是代码执行到这里是否超时
+        // 虽然scheduler模块判断过，运行到这里会花费一定时间？
+      currentRendererTime <= nextFlushedExpirationTime // 这个表示任务超时了
     ) {
       performWorkOnRoot(
         nextFlushedRoot,
         nextFlushedExpirationTime,
-        currentRendererTime > nextFlushedExpirationTime,
+        currentRendererTime > nextFlushedExpirationTime, // 过期的话这里是true
       );
       findHighestPriorityRoot();
       recomputeCurrentRendererTime();
       currentSchedulerTime = currentRendererTime;
     }
   } else {
+    // Sync模式
     while (
+      // nextFlushedRoot就是通过findHighestPriorityRoot找到的最高优先级root
       nextFlushedRoot !== null &&
       nextFlushedExpirationTime !== NoWork &&
+      // 对于performSyncWork来说minExpirationTime为Sync，
+      // 所以只有nextFlushedExpirationTime是Sync的情况下这个条件才可能成立
       minExpirationTime <= nextFlushedExpirationTime
     ) {
+      // performWorkOnRoot的过程一定会修改nextFlushedRoot（之前找到的最高优先级root）的expirationTime
+      // 否则下面的findHighestPriorityRoot没有意义
       performWorkOnRoot(nextFlushedRoot, nextFlushedExpirationTime, false);
       findHighestPriorityRoot();
     }
@@ -2397,7 +2432,7 @@ function finishRendering() {
 function performWorkOnRoot(
   root: FiberRoot,
   expirationTime: ExpirationTime,
-  isYieldy: boolean,
+  isYieldy: boolean, // yield理解为退让或者中断？ 感觉这一块代码目前还有点问题，这里先当做是任务没有过期了
 ) {
   invariant(
     !isRendering,
@@ -2408,6 +2443,7 @@ function performWorkOnRoot(
   isRendering = true;
 
   // Check if this is async work or sync/expired work.
+  // 这里两个分支，唯一的区别就是可中断模式增加了shouldYield判断是否让出线程
   if (!isYieldy) {
     // Flush work without yielding.
     // TODO: Non-yieldy work does not necessarily imply expired work. A renderer
@@ -2422,12 +2458,14 @@ function performWorkOnRoot(
       root.finishedWork = null;
       // If this root previously suspended, clear its existing timeout, since
       // we're about to try rendering again.
+      // timeout先忽略，后面看suspense的时候再回来看
       const timeoutHandle = root.timeoutHandle;
       if (timeoutHandle !== noTimeout) {
         root.timeoutHandle = noTimeout;
         // $FlowFixMe Complains noTimeout is not a TimeoutID, despite the check above
         cancelTimeout(timeoutHandle);
       }
+      // 这里大致理解流程为renderRoot -> 设置finishedWork -> completeRoot
       renderRoot(root, isYieldy);
       finishedWork = root.finishedWork;
       if (finishedWork !== null) {
@@ -2456,7 +2494,8 @@ function performWorkOnRoot(
       if (finishedWork !== null) {
         // We've completed the root. Check the if we should yield one more time
         // before committing.
-        if (!shouldYieldToRenderer()) {
+        // 检查是否需要再次让出线程（中断）？因为时间片已经用完了
+        if (!shouldYieldToRenderer()) { // 因为这里有可能中断，所以函数顶部会判断是否存在finishedWork，可能是上次中断还没有执行complete
           // Still time left. Commit the root.
           completeRoot(root, finishedWork, expirationTime);
         } else {
