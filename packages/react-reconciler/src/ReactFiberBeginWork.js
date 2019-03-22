@@ -160,6 +160,7 @@ export function reconcileChildren(
   renderExpirationTime: ExpirationTime,
 ) {
   if (current === null) {
+    // 判断是不是第一次加载
     // If this is a fresh new component that hasn't been rendered yet, we
     // won't update its child set by applying minimal side-effects. Instead,
     // we will add them all to the child before it gets rendered. That means
@@ -1910,6 +1911,7 @@ function bailoutOnAlreadyFinishedWork(
 
   // Check if the children have any pending work.
   const childExpirationTime = workInProgress.childExpirationTime;
+  // 利用了childExpirationTime，可以避免直接遍历到子节点查询expirationTime
   if (childExpirationTime < renderExpirationTime) {
     // The children don't have any work either. We can skip them.
     // TODO: Once we add back resuming, we should check if the children are
@@ -1924,12 +1926,14 @@ function bailoutOnAlreadyFinishedWork(
 }
 
 function beginWork(
-  current: Fiber | null,
-  workInProgress: Fiber,
-  renderExpirationTime: ExpirationTime,
+  current: Fiber | null, // rootFiber
+  workInProgress: Fiber, // 从rootFiber复制的fiber
+  renderExpirationTime: ExpirationTime, // 这个值是FiberRoot的nextExpirationTimeToWorkOn， 标记的是这次渲染的优先级最大到多少
 ): Fiber | null {
   const updateExpirationTime = workInProgress.expirationTime;
 
+  // 当第一次创建workInProgress时，workInProgress.current是不存在的，只有当workInProgress完成之后，才会去改变引用
+  // 所以这个判断也是判断这个节点是不是第一次渲染
   if (current !== null) {
     const oldProps = current.memoizedProps;
     const newProps = workInProgress.pendingProps;
@@ -1938,6 +1942,8 @@ function beginWork(
       // If props or context changed, mark the fiber as having performed work.
       // This may be unset if the props are determined to be equal later (memo).
       didReceiveUpdate = true;
+      // updateExpirationTime表示当前fiber的updateExpirationTime， 而renderExpirationTime表示此次渲染的最大优先级
+      // 这个判断成立则表示，当前fiber的优先级没有那么高
     } else if (updateExpirationTime < renderExpirationTime) {
       didReceiveUpdate = false;
       // This fiber does not have any pending work. Bailout without entering
@@ -2059,7 +2065,7 @@ function beginWork(
       );
     }
     case FunctionComponent: {
-      const Component = workInProgress.type;
+      const Component = workInProgress.type; // function 构造函数 'div'
       const unresolvedProps = workInProgress.pendingProps;
       const resolvedProps =
         workInProgress.elementType === Component

@@ -489,11 +489,11 @@ export function createFiberFromTypeAndProps(
   // The resolved type is set if we know what the final type will be. I.e. it's not lazy.
   let resolvedType = type;
   if (typeof type === 'function') {
-    if (shouldConstruct(type)) {
+    if (shouldConstruct(type)) { // 判断是否class，并继承了React.Component
       fiberTag = ClassComponent;
     }
   } else if (typeof type === 'string') {
-    fiberTag = HostComponent;
+    fiberTag = HostComponent; // dom组件
   } else {
     getTag: switch (type) {
       case REACT_FRAGMENT_TYPE:
@@ -506,7 +506,7 @@ export function createFiberFromTypeAndProps(
       case REACT_CONCURRENT_MODE_TYPE:
         return createFiberFromMode(
           pendingProps,
-          mode | ConcurrentMode | StrictMode,
+          mode | ConcurrentMode | StrictMode, // 或操作，会将这几种模式结合在一起
           expirationTime,
           key,
         );
@@ -523,6 +523,7 @@ export function createFiberFromTypeAndProps(
         return createFiberFromSuspense(pendingProps, mode, expirationTime, key);
       default: {
         if (typeof type === 'object' && type !== null) {
+          // memo、 context的情况
           switch (type.$$typeof) {
             case REACT_PROVIDER_TYPE:
               fiberTag = ContextProvider;
@@ -614,6 +615,8 @@ export function createFiberFromFragment(
   expirationTime: ExpirationTime,
   key: null | string,
 ): Fiber {
+  // createFiber的第二个参数是pendingProps，但是对于Fragment来说，他的props只有children
+  // 所以直接传入elements
   const fiber = createFiber(Fragment, elements, key, mode);
   fiber.expirationTime = expirationTime;
   return fiber;

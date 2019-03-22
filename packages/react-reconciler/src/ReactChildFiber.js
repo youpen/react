@@ -249,14 +249,15 @@ function ChildReconciler(shouldTrackSideEffects) {
     // effects aren't added until the complete phase. Once we implement
     // resuming, this may not be true.
     const last = returnFiber.lastEffect;
+    // 链表插入
     if (last !== null) {
       last.nextEffect = childToDelete;
       returnFiber.lastEffect = childToDelete;
     } else {
       returnFiber.firstEffect = returnFiber.lastEffect = childToDelete;
     }
-    childToDelete.nextEffect = null;
-    childToDelete.effectTag = Deletion;
+    childToDelete.nextEffect = null; // 这是准备删除的节点，先清除
+    childToDelete.effectTag = Deletion; // 设置effectTag表示删除，实际上在哪里删除？
   }
 
   function deleteRemainingChildren(
@@ -1090,6 +1091,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       // We already have an existing node so let's just update it and delete
       // the rest.
       deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
+      // 之所以叫useFiber，因为这是一个复用的过程
       const existing = useFiber(currentFirstChild, textContent, expirationTime);
       existing.return = returnFiber;
       return existing;
@@ -1108,22 +1110,32 @@ function ChildReconciler(shouldTrackSideEffects) {
 
   function reconcileSingleElement(
     returnFiber: Fiber,
-    currentFirstChild: Fiber | null,
+    currentFirstChild: Fiber | null, //current.child，初次渲染应该为null
     element: ReactElement,
     expirationTime: ExpirationTime,
-  ): Fiber {
+  ): Fiber { // 返回值就是新的childFiber
     const key = element.key;
     let child = currentFirstChild;
+    // 整个流程就是遍历currentFirstChild的sibling（当currentFirstChild也就是旧的element），找到一个可以复用的子节点并返回
+    // 如果没有就根据参数中的element创建新的fiber
+    // 比如这个functionComponent返回结果是这样的
+    // <SomeComponent></SomeComponent>
     while (child !== null) {
       // TODO: If key === null and child.key === null, then this only applies to
       // the first item in the list.
       if (child.key === key) {
         if (
+          // 判断和老节点是不是一样的
           child.tag === Fragment
             ? element.type === REACT_FRAGMENT_TYPE
             : child.elementType === element.type
         ) {
+          // 之所以删掉sibling，因为当进入这个函数的时候，已经能保证这次的child只有一个元素
+          // 注意函数名 single
+          // 如果是有多个元素的话，那应该是reconcileArray
+          // 所以这里是复用第一个child
           deleteRemainingChildren(returnFiber, child.sibling);
+          // useFiber就是创建一个fiber的clone
           const existing = useFiber(
             child,
             element.type === REACT_FRAGMENT_TYPE
@@ -1132,7 +1144,7 @@ function ChildReconciler(shouldTrackSideEffects) {
             expirationTime,
           );
           existing.ref = coerceRef(returnFiber, child, element);
-          existing.return = returnFiber;
+          existing.return = returnFiber; // 保持结构
           if (__DEV__) {
             existing._debugSource = element._source;
             existing._debugOwner = element._owner;
@@ -1158,6 +1170,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       created.return = returnFiber;
       return created;
     } else {
+      // 这里是没有发现可以复用节点的情况
       const created = createFiberFromElement(
         element,
         returnFiber.mode,
@@ -1217,11 +1230,11 @@ function ChildReconciler(shouldTrackSideEffects) {
   // itself. They will be added to the side-effect list as we pass through the
   // children and the parent.
   function reconcileChildFibers(
-    returnFiber: Fiber,
-    currentFirstChild: Fiber | null,
-    newChild: any,
-    expirationTime: ExpirationTime,
-  ): Fiber | null {
+    returnFiber: Fiber, // 这个是workInProgressFiber
+    currentFirstChild: Fiber | null, // current.child,第一次渲染应该是null
+    newChild: any, // 从functionComponent进来这个是functionComponent执行的结果
+    expirationTime: ExpirationTime, // 这个就是renderExpirationTime
+  ): Fiber | null { // 这个函数返回的就是workInProgress的child
     // This function is not recursive.
     // If the top level item is an array, we treat it as a set of children,
     // not as a fragment. Nested arrays on the other hand will be treated as
@@ -1230,6 +1243,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     // Handle top level unkeyed fragments as if they were arrays.
     // This leads to an ambiguity between <>{[...]}</> and <>...</>.
     // We treat the ambiguous cases above the same.
+    // 判断是不是一个没有key的Fragment
     const isUnkeyedTopLevelFragment =
       typeof newChild === 'object' &&
       newChild !== null &&
@@ -1242,6 +1256,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     // Handle object types
     const isObject = typeof newChild === 'object' && newChild !== null;
 
+    // 如果是Object，说明是ReactElement
     if (isObject) {
       switch (newChild.$$typeof) {
         case REACT_ELEMENT_TYPE:
@@ -1264,7 +1279,7 @@ function ChildReconciler(shouldTrackSideEffects) {
           );
       }
     }
-
+    // 说明是hostElement
     if (typeof newChild === 'string' || typeof newChild === 'number') {
       return placeSingleChild(
         reconcileSingleTextNode(
@@ -1307,7 +1322,7 @@ function ChildReconciler(shouldTrackSideEffects) {
       // If the new child is undefined, and the return fiber is a composite
       // component, throw an error. If Fiber return types are disabled,
       // we already threw above.
-      switch (returnFiber.tag) {
+      switch (returnFiber.tag) { // 这个就是父节点
         case ClassComponent: {
           if (__DEV__) {
             const instance = returnFiber.stateNode;
@@ -1334,6 +1349,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     }
 
     // Remaining cases are all treated as empty.
+    // 说明这个component返回了null，把子节点全部删除
     return deleteRemainingChildren(returnFiber, currentFirstChild);
   }
 

@@ -173,7 +173,7 @@ export function createElement(type, config, children) {
   type有几种情况
   native dom类型就是一个字符串
   function类型就是函数
-  class类型就是
+  class类型就是class
   */
   let propName;
 

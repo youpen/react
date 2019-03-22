@@ -1179,7 +1179,9 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
       stopProfilerTimerIfRunningAndRecordDelta(workInProgress, true);
     }
   } else {
+    //
     next = beginWork(current, workInProgress, nextRenderExpirationTime);
+    // pendingProps就是新传进来的props，更新完成后就是当前props
     workInProgress.memoizedProps = workInProgress.pendingProps;
   }
 
@@ -1199,7 +1201,7 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
 
   if (next === null) {
     // If this doesn't spawn new work, complete the current work.
-    // 表示做完了，开始commit
+    // 表示更新到子树的底部了
     next = completeUnitOfWork(workInProgress);
   }
 
@@ -1212,6 +1214,7 @@ function workLoop(isYieldy) {
   if (!isYieldy) {
     // Flush work without yielding
     while (nextUnitOfWork !== null) {
+      // nextUnitOfWork最开始是在renderRoot中复制rootFiber的workInProgress
       nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
   } else {
@@ -1223,25 +1226,33 @@ function workLoop(isYieldy) {
 }
 
 function renderRoot(root: FiberRoot, isYieldy: boolean): void {
+  // TODO 这个暂时还不知道有什么用
   flushPassiveEffects();
 
   isWorking = true;
+  // TODO 这个暂时还不知道有什么用
   const previousDispatcher = ReactCurrentDispatcher.current;
   ReactCurrentDispatcher.current = ContextOnlyDispatcher;
 
-  const expirationTime = root.nextExpirationTimeToWorkOn;
+  const expirationTime = root.nextExpirationTimeToWorkOn; // TODO ?这个值哪来的？
 
   // Check if we're starting from a fresh stack, or if we're resuming from
   // previously yielded work.
   if (
+    // 看起来是判断是否重复
+    // nextRoot和nextRenderExpirationTime可能就是接下来要去执行的root
+    // 如果不一样，可能的情况就是之前执行的任务被一个高优先级的任务打断了
     expirationTime !== nextRenderExpirationTime ||
     root !== nextRoot ||
     nextUnitOfWork === null
   ) {
     // Reset the stack and start working from the root.
+    //　TODO ?
     resetStack();
     nextRoot = root;
     nextRenderExpirationTime = expirationTime;
+    // 复制一份fiber对象，当更新处理的时候，我们不会在原始fiber上面执行，都是在workInProgress上面执行
+    // 之前的传来传去的都是FiberRoot，也就是scheduleRoot，这里第一次从FiberRoot中取出对应的rootFiber
     nextUnitOfWork = createWorkInProgress(
       nextRoot.current,
       null,
@@ -1296,9 +1307,10 @@ function renderRoot(root: FiberRoot, isYieldy: boolean): void {
   let prevInteractions: Set<Interaction> = (null: any);
 
   let didFatal = false;
-
+  // 从这里开始就是传统意义的Reconcilation？
   startWorkLoopTimer(nextUnitOfWork);
 
+  // 开始处理每个节点的更新
   do {
     try {
       workLoop(isYieldy);
@@ -1868,7 +1880,6 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
   if (root === null) {
     return;
   }
-  // working就是是否在committing
   // if (
   //   !isWorking &&
   //   nextRenderExpirationTime !== NoWork &&
@@ -1882,8 +1893,9 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
   if (
     // If we're in the render phase, we don't need to schedule this root
     // for an update, because we'll do it before we exit...
-    // isWorking包含了render和commit两个步骤
-    // 这里可以理解为处于isWorking但是又不是isCommitting以外的所有情况（其实就是排除rendering情况？
+    // isWorking包含了renderRoot和commitRoot两个步骤
+    // isCommitting就是commitRoot
+    // isWorking但是又不是isCommitting以外的所有情况(schedule和committing过程）
     !isWorking ||
     isCommitting ||
     // isCommitting也可以requestWork，是因为这表明上一次调度已经结束了，可以请求下一个工作
@@ -1893,7 +1905,6 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
     // 大部分情况nextRoot等于root
     nextRoot !== root
   ) {
-    // 只要不是rendering阶段，执行以下操作
     // 上面调用了markPendingPriorityLevel函数，所以scheduleWork传入的expirationTime并不一定是root.expirationTime
     const rootExpirationTime = root.expirationTime;
     requestWork(root, rootExpirationTime);
@@ -2084,19 +2095,24 @@ function requestCurrentTime() {
   // But the scheduler time can only be updated if there's no pending work, or
   // if we know for certain that we're not in the middle of an event.
 
-
-  // currentSchedulerTime 与 currentRendererTime不一样的情况就是，currentRendererTime被重新赋值，而currentSchedulerTime还没有
   if (isRendering) {
     // We're already rendering. Return the most recently read time.
+    // 这种情况是因为，在rendering和committing阶段，有可能调用了生命周期方法，而生命周期方法，有可能再次出发更新，这个时候就要一样的currentSchedulerTime
+    // 而currentSchedulerTime，就是在performWork函数中计算出来的
+    // 但是，为什么？
     return currentSchedulerTime;
   }
+
+  // 这里有一种情况就是，多次调用setState,每次都会产生一个新任务，然后在scheduleRoot中一定会有一个情况就是，nextFlushedExpirationTime !== NoWork
+  // 然后下面这个条件就不会满足，然后都会获取相同的currentTime，那么就可以放在一起处理，应用batchUpdate
   // Check if there's pending work.
   findHighestPriorityRoot();
   if (
+    // 这个值在findHighestPriorityRoot中被修改，所以这个判断是检查当前是否有任务要更新
     nextFlushedExpirationTime === NoWork ||
     nextFlushedExpirationTime === Never
   ) {
-    // 这种情况也是初始的情况，所以recomputeCurrentRendererTime也是最初的expirationTime计算函数
+    // 当前处理空置状态，没有任务要更新，此时requestCurrentTime则返回新的时间
     // If there's no pending work, or if the pending work is offscreen, we can
     // read the current time without risk of tearing.
     recomputeCurrentRendererTime();
@@ -2283,7 +2299,7 @@ function performAsyncWork() {
         recomputeCurrentRendererTime();
         let root: FiberRoot = firstScheduledRoot;
         // 对每个rootFiber调用didExpireAtExpirationTime
-        // didExpireAtExpirationTime就是判断root的expirationTime是否超时，超时则更新root的nextExpirationTime
+        // didExpireAtExpirationTime就是判断root的expirationTime是否超时，超时则更新root的nextExpirationTimeToWorkOn
         do {
           didExpireAtExpirationTime(root, currentRendererTime);
           // The root schedule is circular, so this is never null.
@@ -2432,7 +2448,7 @@ function finishRendering() {
 function performWorkOnRoot(
   root: FiberRoot,
   expirationTime: ExpirationTime,
-  isYieldy: boolean, // yield理解为退让或者中断？ 感觉这一块代码目前还有点问题，这里先当做是任务没有过期了
+  isYieldy: boolean, // yield理解为中断？
 ) {
   invariant(
     !isRendering,

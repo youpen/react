@@ -504,7 +504,11 @@ function unstable_shouldYield() {
     // 所以这里是判断是否有新任务进来，并且新任务的优先级更高？
 
     // 这个函数会在接下来的各个流程中用到，每次调用这个函数就是检查是否有新任务，考虑是否需要中止
-    // TODO 整理中断位置、scheduleCallback、performWork、performWorkOnRoot、renderRoot
+    // 结论就是，任务没超时 && （ 没有高优先级任务进来 || 当前帧还有时间 ）的情况下可以中断
+    // 任务超时不能中断
+    // 任务没超时，有高优先级任务进来，中断
+    // 任务没超时，当前帧还有时间，中断
+    // TODO 整理中断位置、scheduleCallback、performAsyncWork、performWorkOnRoot、workLoop
     !currentDidTimeout &&
     ((firstCallbackNode.expirationTime < currentExpirationTime) ||
       shouldYieldToHost())
