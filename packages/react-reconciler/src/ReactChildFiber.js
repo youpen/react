@@ -250,6 +250,8 @@ function ChildReconciler(shouldTrackSideEffects) {
     // resuming, this may not be true.
     const last = returnFiber.lastEffect;
     // 链表插入
+    // 所以对于effect链表来说，就是在commit阶段会遍历effect链表（这个链表的每个成员都是fiber）
+    // TODO 然后根据链表的element执行删除dom的操作？fiber上面应该有找到对应的dom的属性
     if (last !== null) {
       last.nextEffect = childToDelete;
       returnFiber.lastEffect = childToDelete;
@@ -257,7 +259,9 @@ function ChildReconciler(shouldTrackSideEffects) {
       returnFiber.firstEffect = returnFiber.lastEffect = childToDelete;
     }
     childToDelete.nextEffect = null; // 这是准备删除的节点，先清除
-    childToDelete.effectTag = Deletion; // 设置effectTag表示删除，实际上在哪里删除？
+    // 设置effectTag表示删除，实际上在commit阶段删除
+    // 因为在这里删除会影响dom节点
+    childToDelete.effectTag = Deletion;
   }
 
   function deleteRemainingChildren(
@@ -773,6 +777,8 @@ function ChildReconciler(shouldTrackSideEffects) {
     let newIdx = 0;
     let nextOldFiber = null;
     for (; oldFiber !== null && newIdx < newChildren.length; newIdx++) {
+      // fiber中的index属性，就是这个节点在数组上面的位置
+      // 说明位置不匹配
       if (oldFiber.index > newIdx) {
         nextOldFiber = oldFiber;
         oldFiber = null;
